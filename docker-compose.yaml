@@ -1,28 +1,133 @@
+version: '3.8'
 
-verison: ' 3.8'
-
-
-networks: 
+networks:
   automation_net:
     driver: bridge
     ipam:
       config:
         - subnet: 172.20.0.0/16
 
-
 services:
+  # Web Server - Simple and working
+  web-server:
+    image: nginx:alpine
+    container_name: web-server
+    hostname: web-server
+    networks:
+      automation_net:
+        ipv4_address: 172.20.0.10
+    ports:
+      - "8080:80"
+      - "2201:22"
+    volumes:
+      - ./logs/web:/var/log/nginx
+      - ./scripts:/automation
+      - ./web-content/html:/var/www/html
+      - ./web-content/configs:/etc/nginx/conf.d
+    # Simplified startup - nginx first, then add SSH
+    command: sh -c "
+      apk add --no-cache openssh bash &&
+      ssh-keygen -A &&
+      echo 'root:password123' | chpasswd &&
+      sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      /usr/sbin/sshd &&
+      nginx -g 'daemon off;'"
 
-#webser container
+  # App Server - Simple Python HTTP server
+  app-server:
+    image: python:3.11-slim
+    container_name: app-server
+    hostname: app-server
+    networks:
+      automation_net:
+        ipv4_address: 172.20.0.30
+    ports:
+      - "5001:8000"    # Using port 8000 inside container, 5001 outside
+      - "2203:22"
+    volumes:
+      - ./apps:/app
+      - ./logs/app:/var/log/app
+      - ./scripts:/automation
+    # Start Python server first, then add SSH
+    command: sh -c "
+      cd /app && python -m http.server 8000 &
+      apt-get update &&
+      apt-get install -y openssh-server bash &&
+      service ssh start &&
+      echo 'root:password123' | chpasswd &&
+      sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      service ssh restart &&
+      wait"
 
-web-server:
-  image: ngnix:alpine 
-  container_name: web-server
-  hostname: web-server
+  # Database Server - Simplified
+  db-server:
+    image: mysql:8.0
+    container_name: db-server
+    hostname: db-server
+    networks:
+      automation_net:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "3307:3306"
+      - "2202:22"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass123
+      MYSQL_DATABASE: appdb
+    volumes:
+      - ./logs/db:/var/log/mysql
+      - ./scripts:/automation
+    # Start MySQL first, then add SSH
+    command: sh -c "
+      docker-entrypoint.sh mysqld &
+      sleep 10 &&
+      apt-get update &&
+      apt-get install -y openssh-server bash &&
+      service ssh start &&
+      echo 'root:password123' | chpasswd &&
+      sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      service ssh restart &&
+      wait"
 
+  # Monitor Server - Simple Ubuntu
+  monitor-server:
+    image: ubuntu:22.04
+    container_name: monitor-server
+    hostname: monitor-server
+    networks:
+      automation_net:
+        ipv4_address: 172.20.0.40
+    ports:
+      - "2204:22"
+    volumes:
+      - ./logs/monitor:/var/log/monitor
+      - ./scripts:/automation
+    command: sh -c "
+      apt-get update &&
+      apt-get install -y openssh-server python3 bash htop curl &&
+      service ssh start &&
+      echo 'root:password123' | chpasswd &&
+      sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      service ssh restart &&
+      tail -f /dev/null"
 
-  network:
-    automation_net:
-      ipv4_adrress: 172.20.0.10
-
-
-port 
+  # IAM Server - Simple Ubuntu
+  iam-server:
+    image: ubuntu:22.04
+    container_name: iam-server
+    hostname: iam-server
+    networks:
+      automation_net:
+        ipv4_address: 172.20.0.50
+    ports:
+      - "2205:22"
+    volumes:
+      - ./logs/iam:/var/log/iam
+      - ./scripts:/automation
+    command: sh -c "
+      apt-get update &&
+      apt-get install -y openssh-server python3 bash ldap-utils curl &&
+      service ssh start &&
+      echo 'root:password123' | chpasswd &&
+      sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      service ssh restart &&
+      tail -f /dev/null" 
