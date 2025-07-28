@@ -1,1 +1,368 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 300;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .main-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+
+        .welcome-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .welcome-section h2 {
+            color: #333;
+            font-size: 32px;
+            font-weight: 300;
+            margin-bottom: 10px;
+        }
+
+        .welcome-section p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .dashboard-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            border-color: #667eea;
+        }
+
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: white;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .card-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .quick-actions {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-top: 30px;
+        }
+
+        .quick-actions h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>Admin Dashboard</h1>
+            <div class="user-info">
+                <span>Welcome, <strong>Admin</strong></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="welcome-section">
+            <h2>Welcome to Your Dashboard</h2>
+            <p>Manage your system with powerful administrative tools</p>
+        </div>
+
+        <!-- Statistics Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">1,234</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">567</div>
+                <div class="stat-label">Active Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">89%</div>
+                <div class="stat-label">System Health</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">Uptime</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Options -->
+        <div class="dashboard-grid">
+            <div class="dashboard-card" onclick="navigateTo('users')">
+                <div class="card-icon">👥</div>
+                <div class="card-title">User Management</div>
+                <div class="card-description">Manage user accounts, permissions, and access levels</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('analytics')">
+                <div class="card-icon">📊</div>
+                <div class="card-title">Analytics & Reports</div>
+                <div class="card-description">View detailed analytics and generate comprehensive reports</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('settings')">
+                <div class="card-icon">⚙️</div>
+                <div class="card-title">System Settings</div>
+                <div class="card-description">Configure system preferences and administrative settings</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('security')">
+                <div class="card-icon">🔒</div>
+                <div class="card-title">Security Center</div>
+                <div class="card-description">Monitor security events and manage access controls</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('content')">
+                <div class="card-icon">📝</div>
+                <div class="card-title">Content Management</div>
+                <div class="card-description">Create, edit, and manage all website content</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('support')">
+                <div class="card-icon">💬</div>
+                <div class="card-title">Support Center</div>
+                <div class="card-description">Manage customer support tickets and communications</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('database')">
+                <div class="card-icon">🗄️</div>
+                <div class="card-title">Database Management</div>
+                <div class="card-description">Monitor and manage database operations and backups</div>
+            </div>
+
+            <div class="dashboard-card" onclick="navigateTo('logs')">
+                <div class="card-icon">📋</div>
+                <div class="card-title">System Logs</div>
+                <div class="card-description">View and analyze system logs and error reports</div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <h3>Quick Actions</h3>
+            <div class="action-buttons">
+                <button class="action-btn" onclick="quickAction('backup')">Create Backup</button>
+                <button class="action-btn" onclick="quickAction('maintenance')">Maintenance Mode</button>
+                <button class="action-btn" onclick="quickAction('cache')">Clear Cache</button>
+                <button class="action-btn" onclick="quickAction('notifications')">Send Notification</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Navigation function for dashboard cards
+        function navigateTo(section) {
+            alert(`Opening ${section.charAt(0).toUpperCase() + section.slice(1)} section...`);
+            // Here you would implement your actual navigation logic
+        }
+
+        // Quick action functions
+        function quickAction(action) {
+            alert(`Executing ${action}...`);
+            // Here you would implement the actual quick actions
+        }
+
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                alert('Logging out...');
+                // Here you would redirect to your login page
+                // window.location.href = 'login.html';
+            }
+        }
+
+        // Optional: Dynamic stats updates
+        function updateStats() {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            if (statNumbers.length >= 2) {
+                statNumbers[0].textContent = Math.floor(Math.random() * 2000) + 1000;
+                statNumbers[1].textContent = Math.floor(Math.random() * 800) + 400;
+            }
+        }
+
+        // Update stats every 30 seconds
+        setInterval(updateStats, 30000);
+    </script>
