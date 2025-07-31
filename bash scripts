@@ -1,1 +1,18 @@
 # bash scripts used on my docker network 
+
+#python scripts will be putting creating a dir and showing having bash and python scripts
+import docker
+
+client = docker.from_env()
+containers = ['web-server', 'app-server', 'monitor-server', 'iam-server', 'serv$
+
+for container_name in containers:
+    container = client.containers.get(container_name)
+
+    # Check processes
+    result = container.exec_run("ps aux")
+    print(f"{container_name}: {result.output.decode()}")
+
+    # Check disk usage
+    result = container.exec_run("df -h")
+    print(f"{container_name}: {result.output.decode()}")
