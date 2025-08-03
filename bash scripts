@@ -1,5 +1,10 @@
 # bash scripts used on my docker network 
 
+
+
+# will be wokring on puttting all these scrtipts in two dir python and bash
+
+
 #python scripts will be putting creating a dir and showing having bash and python scripts
 import docker
 
