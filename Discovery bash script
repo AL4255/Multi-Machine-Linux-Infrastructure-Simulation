@@ -1,0 +1,271 @@
+#!/bin/bash
+
+# Docker Network Diagnostics Script
+# Discovers and tests connectivity for Docker containers
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Counters for summary
+TOTAL_TESTS=0
+PASSED_TESTS=0
+FAILED_TESTS=0
+
+# Function to print colored output
+print_header() {
+    echo -e "\n${BLUE}========================================${NC}"
+    echo -e "${BLUE}$1${NC}"
+    echo -e "${BLUE}========================================${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+    ((PASSED_TESTS++))
+    ((TOTAL_TESTS++))
+}
+
+print_failure() {
+    echo -e "${RED}✗ $1${NC}"
+    ((FAILED_TESTS++))
+    ((TOTAL_TESTS++))
+}
+
+print_info() {
+    echo -e "${CYAN}ℹ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
+# Function to check if Docker is running
+check_docker() {
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "${RED}Error: Docker is not running or not accessible${NC}"
+        exit 1
+    fi
+}
+
+# Function to discover running containers
+discover_containers() {
+    print_header "DISCOVERING CONTAINERS"
+    
+    # Get running containers with their info
+    CONTAINERS=$(docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}" | tail -n +2)
+    
+    if [ -z "$CONTAINERS" ]; then
+        print_warning "No running containers found!"
+        exit 1
+    fi
+    
+    echo "$CONTAINERS"
+    
+    # Store container names in array
+    CONTAINER_NAMES=($(docker ps --format "{{.Names}}"))
+    CONTAINER_COUNT=${#CONTAINER_NAMES[@]}
+    
+    print_info "Found $CONTAINER_COUNT running containers"
+    
+    if [ $CONTAINER_COUNT -ne 5 ]; then
+        print_warning "Expected 5 containers, found $CONTAINER_COUNT"
+    fi
+}
+
+# Function to get container IP address
+get_container_ip() {
+    local container_name=$1
+    docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container_name" 2>/dev/null | head -n1
+}
+
+# Function to get container networks
+get_container_networks() {
+    local container_name=$1
+    docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' "$container_name" 2>/dev/null
+}
+
+# Function to get exposed ports
+get_exposed_ports() {
+    local container_name=$1
+    docker port "$container_name" 2>/dev/null || echo "No exposed ports"
+}
+
+# Function to test network connectivity between containers
+test_container_connectivity() {
+    print_header "TESTING CONTAINER-TO-CONTAINER CONNECTIVITY"
+    
+    for source_container in "${CONTAINER_NAMES[@]}"; do
+        echo -e "\n${PURPLE}Testing from: $source_container${NC}"
+        
+        for target_container in "${CONTAINER_NAMES[@]}"; do
+            if [ "$source_container" != "$target_container" ]; then
+                target_ip=$(get_container_ip "$target_container")
+                
+                if [ -n "$target_ip" ]; then
+                    # Test basic ping connectivity
+                    if docker exec "$source_container" ping -c 1 -W 2 "$target_ip" >/dev/null 2>&1; then
+                        print_success "$source_container → $target_container ($target_ip) - PING OK"
+                    else
+                        print_failure "$source_container → $target_container ($target_ip) - PING FAILED"
+                    fi
+                else
+                    print_failure "$source_container → $target_container - NO IP FOUND"
+                fi
+            fi
+        done
+    done
+}
+
+# Function to test common ports
+test_common_ports() {
+    print_header "TESTING COMMON SERVICE PORTS"
+    
+    # Common ports to test
+    local common_ports=(80 443 3000 5000 8000 8080 3306 5432 6379 27017)
+    
+    for container in "${CONTAINER_NAMES[@]}"; do
+        echo -e "\n${PURPLE}Testing ports on: $container${NC}"
+        container_ip=$(get_container_ip "$container")
+        
+        for port in "${common_ports[@]}"; do
+            # Test from another container to avoid host networking issues
+            local test_container=""
+            for other_container in "${CONTAINER_NAMES[@]}"; do
+                if [ "$other_container" != "$container" ]; then
+                    test_container="$other_container"
+                    break
+                fi
+            done
+            
+            if [ -n "$test_container" ] && [ -n "$container_ip" ]; then
+                # Use timeout and nc (netcat) to test port
+                if docker exec "$test_container" timeout 3 sh -c "echo >/dev/tcp/$container_ip/$port" 2>/dev/null; then
+                    print_success "$container:$port - PORT OPEN"
+                else
+                    # Don't count closed ports as failures unless they should be open
+                    echo -e "${YELLOW}  $container:$port - PORT CLOSED/FILTERED${NC}"
+                fi
+            fi
+        done
+    done
+}
+
+# Function to test external connectivity
+test_external_connectivity() {
+    print_header "TESTING EXTERNAL CONNECTIVITY"
+    
+    for container in "${CONTAINER_NAMES[@]}"; do
+        echo -e "\n${PURPLE}Testing external access from: $container${NC}"
+        
+        # Test internet connectivity
+        if docker exec "$container" ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1; then
+            print_success "$container - Internet connectivity OK"
+        else
+            print_failure "$container - Internet connectivity FAILED"
+        fi
+        
+        # Test DNS resolution
+        if docker exec "$container" nslookup google.com >/dev/null 2>&1; then
+            print_success "$container - DNS resolution OK"
+        else
+            print_failure "$container - DNS resolution FAILED"
+        fi
+    done
+}
+
+# Function to show network topology
+show_network_topology() {
+    print_header "NETWORK TOPOLOGY"
+    
+    for container in "${CONTAINER_NAMES[@]}"; do
+        echo -e "\n${PURPLE}$container:${NC}"
+        echo -e "  IP Address: $(get_container_ip "$container")"
+        echo -e "  Networks: $(get_container_networks "$container")"
+        echo -e "  Exposed Ports: $(get_exposed_ports "$container")"
+    done
+}
+
+# Function to show Docker networks
+show_docker_networks() {
+    print_header "DOCKER NETWORKS"
+    docker network ls
+    echo ""
+    
+    # Show detailed info for non-default networks
+    for network in $(docker network ls --format "{{.Name}}" | grep -v "bridge\|host\|none"); do
+        echo -e "${PURPLE}Network: $network${NC}"
+        docker network inspect "$network" --format "  Subnet: {{range .IPAM.Config}}{{.Subnet}}{{end}}" 2>/dev/null || echo "  Subnet: Not available"
+        echo -n "  Connected containers: "
+        docker network inspect "$network" --format "{{range \$key, \$value := .Containers}}{{.Name}} {{end}}" 2>/dev/null || echo "None"
+        echo ""
+    done
+}
+
+# Function to generate summary report
+generate_summary() {
+    print_header "DIAGNOSTIC SUMMARY"
+    
+    echo -e "Total Tests Run: ${BLUE}$TOTAL_TESTS${NC}"
+    echo -e "Tests Passed: ${GREEN}$PASSED_TESTS${NC}"
+    echo -e "Tests Failed: ${RED}$FAILED_TESTS${NC}"
+    
+    if [ $FAILED_TESTS -eq 0 ]; then
+        echo -e "\n${GREEN}🎉 All network tests passed!${NC}"
+    else
+        echo -e "\n${YELLOW}⚠ Some network issues detected. Check failed tests above.${NC}"
+    fi
+    
+    echo -e "\n${CYAN}Recommendations:${NC}"
+    if [ $FAILED_TESTS -gt 0 ]; then
+        echo "• Review failed connectivity tests"
+        echo "• Check container configurations and networks"
+        echo "• Verify firewall rules and port configurations"
+    fi
+    echo "• Consider using Docker Compose for easier network management"
+    echo "• Use custom networks instead of default bridge for better isolation"
+}
+
+# Main execution
+main() {
+    echo -e "${BLUE}"
+    echo "╔══════════════════════════════════════╗"
+    echo "║     Docker Network Diagnostics      ║"
+    echo "╚══════════════════════════════════════╝"
+    echo -e "${NC}"
+    
+    # Check Docker availability
+    check_docker
+    
+    # Discover containers
+    discover_containers
+    
+    # Show network topology
+    show_network_topology
+    
+    # Show Docker networks
+    show_docker_networks
+    
+    # Test connectivity
+    test_container_connectivity
+    
+    # Test common ports
+    test_common_ports
+    
+    # Test external connectivity
+    test_external_connectivity
+    
+    # Generate summary
+    generate_summary
+    
+    echo -e "\n${BLUE}Diagnostics complete!${NC}"
+}
+
+# Run main function
+main "$@"
